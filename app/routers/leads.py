@@ -1,5 +1,6 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.deps import get_db
 from app.services.lead_service import LeadService
@@ -19,8 +20,8 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 
 @router.get("/", response_model=List[LeadResponse])
 async def list_leads(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(ge=0, description="Number of records to skip for pagination"),
+    limit: int = Query(gt=0, le=100, description="Maximum number of records to return"),
     status: Optional[LeadStatus] = None,
     channel: Optional[Channel] = None,
     assigned_to_id: Optional[int] = None,
@@ -61,9 +62,60 @@ async def get_lead_stats(
     return {"by_status": stats_by_status, "by_channel": stats_by_channel}
 
 
+@router.get("/recent", response_model=List[LeadResponse])
+async def get_recent_leads(
+    hours: int = Query(24, description="Hours to look back", ge=1, le=168),
+    limit: int = Query(10, description="Number of leads to return", ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get leads created in the last N hours"""
+    lead_service = LeadService(db, current_user.id)
+    leads = await lead_service.get_recent_leads(hours=hours, limit=limit)
+    return leads
+
+
+@router.get("/advanced-search", response_model=List[LeadResponse])
+async def advanced_search_leads(
+    client_id: Optional[int] = Query(None, description="Filter by client ID", gt=0),
+    status: Optional[LeadStatus] = Query(None, description="Filter by status"),
+    channel: Optional[Channel] = Query(None, description="Filter by channel"),
+    created_by_id: Optional[int] = Query(None, description="Filter by creator user ID"),
+    assigned_to_id: Optional[int] = Query(
+        None, description="Filter by assigned user ID", gt=0
+    ),
+    date_from: Optional[datetime] = Query(
+        None, description="Filter from date (ISO format)"
+    ),
+    date_to: Optional[datetime] = Query(
+        None, description="Filter to date (ISO format)"
+    ),
+    skip: int = Query(ge=0, description="Number of records to skip for pagination"),
+    limit: int = Query(gt=0, le=100, description="Maximum number of records to return"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Advanced search for leads with multiple filters.
+    """
+    lead_service = LeadService(db, current_user.id)
+    leads = await lead_service.advanced_search(
+        client_id=client_id,
+        status=status,
+        channel=channel.value if channel else None,
+        created_by_id=created_by_id,
+        assigned_to_id=assigned_to_id,
+        date_from=date_from,
+        date_to=date_to,
+        skip=skip,
+        limit=limit,
+    )
+    return leads
+
+
 @router.get("/{lead_id}", response_model=LeadWithDetails)
 async def get_lead(
-    lead_id: int,
+    lead_id: int = Path(gt=0, description="ID of the lead to retrieve"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -79,8 +131,8 @@ async def get_lead(
 
 @router.patch("/{lead_id}", response_model=LeadResponse)
 async def update_lead(
-    lead_id: int,
     lead_data: LeadUpdate,
+    lead_id: int = Path(gt=0, description="ID of the lead to update"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -95,8 +147,8 @@ async def update_lead(
 
 @router.patch("/{lead_id}/status", response_model=LeadResponse)
 async def update_lead_status(
-    lead_id: int,
     status_update: LeadStatusUpdate,
+    lead_id: int = Path(gt=0, description="ID of the lead to update status"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -111,8 +163,8 @@ async def update_lead_status(
 
 @router.patch("/{lead_id}/assign", response_model=LeadResponse)
 async def assign_lead(
-    lead_id: int,
-    assigned_to_id: int = Query(..., description="User ID to assign lead to"),
+    lead_id: int = Path(gt=0, description="ID of the lead to assign"),
+    assigned_to_id: int = Query(..., gt=0, description="User ID to assign lead to"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):

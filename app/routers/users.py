@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.deps import get_db
 from app.services.user_service import UserService
@@ -12,8 +12,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/", response_model=List[UserResponse])
 async def list_users(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(ge=0, description="Number of records to skip for pagination"),
+    limit: int = Query(gt=0, le=100, description="Maximum number of records to return"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -40,7 +40,7 @@ async def create_user(
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
-    user_id: int,
+    user_id: int = Path(gt=0, description="ID of the user to retriever"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -56,8 +56,8 @@ async def get_user(
 
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(
-    user_id: int,
     user_data: UserUpdate,
+    user_id: int = Path(gt=0, description="ID of the user to update"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -72,7 +72,7 @@ async def update_user(
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
-    user_id: int,
+    user_id: int = Path(gt=0, description="ID of the user to delete"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
