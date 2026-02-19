@@ -1,14 +1,16 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
-from app.services.base_service import BaseService
+from app.repositories.base_repository import BaseRepository
 from app.core.security import get_password_hash, verify_password
 from app.schemas.user import UserCreate, UserUpdate
 
 
-class UserService(BaseService):
+class UserService:
     def __init__(self, db: AsyncSession, user_id: Optional[int] = None):
-        super().__init__(db, User, "users", user_id)
+        self.db = db
+        self.user_id = user_id
+        self.repo = BaseRepository(User, db, "users", user_id)
 
     async def create_user(self, user_data: UserCreate) -> User:
         """Create a new user with hashed password"""
@@ -30,10 +32,15 @@ class UserService(BaseService):
         user_dict = user_data.model_dump(exclude={"password"})
         user_dict["hashed_password"] = hashed_password
 
-        return await self.create(user_dict)
+        # Create user
+        user = User(**user_dict)
+        return await self.repo.create(user)
 
     async def update_user(self, user_id: int, user_data: UserUpdate) -> User:
         """Update user"""
+        # Get existing user
+        user = await self.repo.get_by_id_or_raise(user_id)
+
         update_dict = user_data.model_dump(exclude_unset=True)
 
         # Check username uniqueness if being updated
@@ -54,7 +61,11 @@ class UserService(BaseService):
                 update_dict.pop("password")
             )
 
-        return await self.update(user_id, update_dict)
+        return await self.repo.update(user, update_dict)
+
+    async def get_by_id(self, user_id: int) -> Optional[User]:
+        """Get user by ID"""
+        return await self.repo.get_by_id(user_id)
 
     async def authenticate(self, username: str, password: str) -> Optional[User]:
         """Authenticate user by username and password"""
@@ -68,3 +79,16 @@ class UserService(BaseService):
     async def get_by_username(self, username: str) -> Optional[User]:
         """Get user by username"""
         return await self.repo.get_by_field("username", username)
+
+    async def list_all(self, skip: int = 0, limit: int = 100) -> list:
+        """List all users"""
+        return await self.repo.list_all(skip, limit)
+
+    async def delete(self, user_id: int) -> None:
+        """Delete user"""
+        user = await self.repo.get_by_id_or_raise(user_id)
+        await self.repo.delete(user)
+
+    async def count(self) -> int:
+        """Count all users"""
+        return await self.repo.count()

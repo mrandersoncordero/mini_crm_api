@@ -1,17 +1,22 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_, and_
+from sqlalchemy.orm import selectinload
 from app.models.client import Client
-from app.services.base_service import BaseService
+from app.repositories.base_repository import BaseRepository
 from app.schemas.client import ClientCreate, ClientUpdate
 from app.utils.validators import validate_phone
+from app.core.email import email_service
 
 
-class ClientService(BaseService):
+class ClientService:
     def __init__(self, db: AsyncSession, user_id: Optional[int] = None):
-        super().__init__(db, Client, "clients", user_id)
+        self.db = db
+        self.user_id = user_id
+        self.repo = BaseRepository(Client, db, "clients", user_id)
 
     async def create_client(self, client_data: ClientCreate) -> Client:
-        """Create a new client"""
+        """Create a new client and send notification"""
         # Validate and format phone
         phone = validate_phone(client_data.phone)
 
@@ -30,10 +35,24 @@ class ClientService(BaseService):
         ):
             raise ValueError("Company name is required for juridical clients")
 
-        return await self.create(client_dict)
+        # Create client
+        client = Client(**client_dict)
+        created_client = await self.repo.create(client)
+
+        # Send notification to admin
+        email_service.notify_new_client(
+            client_id=created_client.id,
+            client_name=created_client.contact_name,
+            phone=created_client.phone,
+        )
+
+        return created_client
 
     async def update_client(self, client_id: int, client_data: ClientUpdate) -> Client:
         """Update client"""
+        # Get existing client
+        client = await self.repo.get_by_id_or_raise(client_id)
+
         update_dict = client_data.model_dump(exclude_unset=True)
 
         # Validate and format phone if being updated
@@ -54,7 +73,11 @@ class ClientService(BaseService):
             ):
                 raise ValueError("Company name is required for juridical clients")
 
-        return await self.update(client_id, update_dict)
+        return await self.repo.update(client, update_dict)
+
+    async def get_by_id(self, client_id: int) -> Optional[Client]:
+        """Get client by ID"""
+        return await self.repo.get_by_id(client_id)
 
     async def get_by_phone(self, phone: str) -> Optional[Client]:
         """Get client by phone number"""
@@ -63,9 +86,6 @@ class ClientService(BaseService):
 
     async def search_by_name(self, name: str, skip: int = 0, limit: int = 100) -> list:
         """Search clients by contact name (partial match)"""
-        from sqlalchemy import select
-        from sqlalchemy import or_
-
         query = (
             select(Client)
             .where(
@@ -83,9 +103,6 @@ class ClientService(BaseService):
 
     async def get_client_with_leads(self, client_id: int) -> Optional[Client]:
         """Get client with all their leads"""
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
-
         query = (
             select(Client)
             .where(Client.id == client_id)
@@ -94,3 +111,104 @@ class ClientService(BaseService):
 
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
+
+    async def list_all(self, skip: int = 0, limit: int = 100) -> list:
+        """List all clients"""
+        return await self.repo.list_all(skip, limit)
+
+    async def delete(self, client_id: int) -> None:
+        """Delete client"""
+        client = await self.repo.get_by_id_or_raise(client_id)
+        await self.repo.delete(client)
+
+    async def advanced_search(
+        self,
+        contact_name: Optional[str] = None,
+        company_name: Optional[str] = None,
+        phone: Optional[str] = None,
+        email: Optional[str] = None,
+        instagram: Optional[str] = None,
+        client_type: Optional[str] = None,
+        country: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list:
+        """Advanced search for clients with multiple filters"""
+        conditions = []
+
+        if contact_name:
+            conditions.append(Client.contact_name.ilike(f"%{contact_name}%"))
+
+        if company_name:
+            conditions.append(Client.company_name.ilike(f"%{company_name}%"))
+
+        if phone:
+            try:
+                formatted_phone = validate_phone(phone)
+                conditions.append(Client.phone == formatted_phone)
+            except ValueError:
+                conditions.append(Client.phone.ilike(f"%{phone}%"))
+
+        if email:
+            conditions.append(Client.email.ilike(f"%{email}%"))
+
+        if instagram:
+            ig_clean = instagram.lstrip("@")
+            conditions.append(
+                or_(
+                    Client.instagram.ilike(f"%{instagram}%"),
+                    Client.instagram.ilike(f"%{ig_clean}%"),
+                )
+            )
+
+        if client_type:
+            conditions.append(Client.client_type == client_type)
+
+        if country:
+            conditions.append(Client.country.ilike(f"%{country}%"))
+
+        if conditions:
+            query = select(Client).where(and_(*conditions))
+        else:
+            query = select(Client)
+
+        query = query.offset(skip).limit(limit)
+
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def check_client_exists(
+        self,
+        phone: Optional[str] = None,
+        email: Optional[str] = None,
+        instagram: Optional[str] = None,
+    ) -> Optional[Client]:
+        """Check if client exists by phone, email or instagram"""
+        conditions = []
+
+        if phone:
+            try:
+                formatted_phone = validate_phone(phone)
+                conditions.append(Client.phone == formatted_phone)
+            except ValueError:
+                conditions.append(Client.phone.ilike(f"%{phone}%"))
+
+        if email:
+            conditions.append(Client.email.ilike(email))
+
+        if instagram:
+            ig_clean = instagram.lstrip("@")
+            conditions.append(
+                or_(Client.instagram.ilike(instagram), Client.instagram.ilike(ig_clean))
+            )
+
+        if not conditions:
+            return None
+
+        query = select(Client).where(or_(*conditions)).limit(1)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def count(self) -> int:
+        """Count all clients"""
+        return await self.repo.count()
