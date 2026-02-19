@@ -8,3 +8,4 @@ __pycache__
 .env
 node_modules
 postgres_data
+.ruff_cache
