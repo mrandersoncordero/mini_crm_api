@@ -16,11 +16,11 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    username: Optional[str] = Field(None, min_length=3, max_length=50)
-    email: Optional[EmailStr] = Field(None, max_length=255)
+    username: Optional[str] = Field(default=None, min_length=3, max_length=50)
+    email: Optional[EmailStr] = Field(default=None, max_length=255)
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
-    password: Optional[str] = Field(None, min_length=6, max_length=72)
+    password: Optional[str] = Field(default=None, min_length=6, max_length=72)
 
 
 class UserInDB(UserBase):
