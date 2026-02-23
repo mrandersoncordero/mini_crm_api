@@ -1,0 +1,30 @@
+FROM python:3.13-slim
+
+# Install uv for fast package management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install minimal system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only dependency files first (better Docker cache)
+COPY pyproject.toml .
+COPY requirements.txt .
+
+# Install dependencies to system Python (no virtual environment)
+RUN uv pip install --system -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Expose port
+EXPOSE 8000
+
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
