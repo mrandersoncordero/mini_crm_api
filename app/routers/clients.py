@@ -17,8 +17,8 @@ router = APIRouter(prefix="/clients", tags=["clients"])
 
 @router.get("/", response_model=List[ClientResponse])
 async def list_clients(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(ge=0, description="Number of records to skip for pagination"),
+    limit: int = Query(gt=0, le=100, description="Maximum number of records to return"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
