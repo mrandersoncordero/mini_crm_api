@@ -1,7 +1,9 @@
 services:
   fastapi:
     container_name: mini_crm
-    build: .
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.backend
     restart: unless-stopped
     env_file:
       - .env

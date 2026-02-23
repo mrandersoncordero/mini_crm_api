@@ -1,0 +1,45 @@
+services:
+  # Backend API
+  api:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.backend
+    container_name: mini_crm_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - ENV=production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.tls.certresolver=le"
+      - "traefik.http.services.api.loadbalancer.server.port=8000"
+    networks:
+      - proxy
+      - shark
+
+  # Frontend (descomenta cuando tengas el frontend)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: ../dockerfiles/Dockerfile.frontend
+  #   container_name: mini_crm_frontend
+  #   restart: unless-stopped
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.frontend.rule=Host(`${FRONTEND_DOMAIN}`)"
+  #     - "traefik.http.routers.frontend.entrypoints=websecure"
+  #     - "traefik.http.routers.frontend.tls=true"
+  #     - "traefik.http.routers.frontend.tls.certresolver=le"
+  #     - "traefik.http.services.frontend.loadbalancer.server.port=80"
+  #   networks:
+  #     - proxy
+
+networks:
+  shark:
+    external: true
+  proxy:
+    external: true
