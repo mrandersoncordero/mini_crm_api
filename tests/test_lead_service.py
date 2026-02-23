@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from app.services.lead_service import LeadService
 from app.schemas.lead import LeadCreate, LeadUpdate
 from app.utils.enums import Channel, LeadStatus
-
+from app.utils.exceptions import NotFoundException, BadRequestException
 
 class TestLeadService:
     """Tests para LeadService"""
@@ -236,5 +236,7 @@ class TestLeadService:
 
         await service.delete(lead_id)
 
-        deleted = await service.get_by_id(lead_id)
-        assert deleted is None
+        with pytest.raises(
+            NotFoundException, match=f"Lead with identifier '{lead_id}' not found"
+        ):
+            await service.get_by_id(lead_id)
