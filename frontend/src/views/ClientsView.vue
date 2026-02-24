@@ -280,6 +280,8 @@ function confirmDelete(client: Client) {
           <Select
             v-model="filters.client_type"
             :options="clientTypeOptions"
+            optionLabel="label"
+            optionValue="value"
             placeholder="Todos"
             @change="loadClients"
           />
@@ -365,6 +367,8 @@ function confirmDelete(client: Client) {
           <Select
             v-model="form.client_type"
             :options="clientTypeOptions"
+            optionLabel="label"
+            optionValue="value"
             :invalid="submitted && !form.client_type"
           />
         </div>
