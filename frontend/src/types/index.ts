@@ -64,10 +64,10 @@ export interface Client {
   client_type: ClientType
   contact_name: string
   company_name: string | null
-  phone: string
+  phone: string | null
   email: string | null
   instagram: string | null
-  address: string
+  address: string | null
   country: string | null
   created_at: string
   updated_at: string | null
@@ -81,10 +81,10 @@ export interface ClientCreate {
   client_type: ClientType
   contact_name: string
   company_name?: string
-  phone: string
+  phone?: string
   email?: string
   instagram?: string
-  address: string
+  address?: string
   country?: string
 }
 
@@ -92,10 +92,10 @@ export interface ClientUpdate {
   client_type?: ClientType
   contact_name?: string
   company_name?: string
-  phone?: string
+  phone?: string | null
   email?: string
   instagram?: string
-  address?: string
+  address?: string | null
   country?: string
 }
 
