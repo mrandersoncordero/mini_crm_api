@@ -39,7 +39,7 @@ const form = ref({
 const roleOptions = [
   { label: 'Admin', value: UserRole.ADMIN },
   { label: 'Ventas', value: UserRole.SALES },
-  { label: 'Gerencia', value: UserRole.MANAGEMENT },
+  { label: 'Administracion', value: UserRole.MANAGEMENT },
 ]
 
 const submitted = ref(false)
@@ -204,7 +204,7 @@ function roleLabel(role: UserRole): string {
     case UserRole.SALES:
       return 'Ventas'
     case UserRole.MANAGEMENT:
-      return 'Gerencia'
+      return 'Administracion'
     default:
       return role
   }
