@@ -3,7 +3,7 @@ from phonenumbers import PhoneNumberFormat
 from typing import Optional
 
 
-def validate_phone(phone: str, default_country: str = "VE") -> str:
+def validate_phone(phone: str, default_country: str = "VE") -> Optional[str]:
     """
     Validates and formats phone number to E164 format.
     Supports international numbers and auto-detection.
@@ -13,13 +13,13 @@ def validate_phone(phone: str, default_country: str = "VE") -> str:
         default_country: ISO country code to use if no country code detected (default: VE)
 
     Returns:
-        Formatted phone number in E164 format (+584123456789)
+        Formatted phone number in E164 format (+584123456789) or None if empty
 
     Raises:
         ValueError: If phone number is invalid
     """
     if not phone:
-        raise ValueError("Phone number is required")
+        return None
 
     # Clean the phone string - remove spaces, dashes, parentheses
     phone = phone.strip()

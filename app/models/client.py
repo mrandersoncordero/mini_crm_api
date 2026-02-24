@@ -14,10 +14,10 @@ class Client(Base, TimestampMixin):
     )
     contact_name: Mapped[str] = mapped_column(String(150), nullable=False)
     company_name: Mapped[str] = mapped_column(String(150), nullable=True)
-    phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=True)
     email: Mapped[str] = mapped_column(String(255), nullable=True)
     instagram: Mapped[str] = mapped_column(String(100), nullable=True)
-    address: Mapped[str] = mapped_column(String(500), nullable=False)
+    address: Mapped[str] = mapped_column(String(500), nullable=True)
     country: Mapped[str] = mapped_column(String(100), nullable=True)
 
     # Relationships

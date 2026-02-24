@@ -9,10 +9,10 @@ class ClientBase(BaseModel):
     client_type: ClientType
     contact_name: str = Field(max_length=150)
     company_name: Optional[str] = Field(max_length=150, default=None)
-    phone: str = Field(min_length=7, max_length=20)
+    phone: Optional[str] = Field(max_length=20, default=None)
     email: Optional[EmailStr] = Field(max_length=255, default=None)
     instagram: Optional[str] = Field(max_length=100, default=None)
-    address: str = Field(max_length=500)
+    address: Optional[str] = Field(max_length=500, default=None)
     country: Optional[str] = Field(max_length=100, default=None)
 
     @field_validator("phone")
