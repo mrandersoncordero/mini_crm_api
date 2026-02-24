@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.deps import get_db
@@ -72,6 +73,12 @@ async def advanced_search_clients(
         None, description="Filter by client type: natural/juridical"
     ),
     country: Optional[str] = Query(None, description="Filter by country"),
+    date_from: Optional[datetime] = Query(
+        None, description="Filter from date (ISO format)"
+    ),
+    date_to: Optional[datetime] = Query(
+        None, description="Filter to date (ISO format)"
+    ),
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
@@ -90,6 +97,8 @@ async def advanced_search_clients(
         instagram=instagram,
         client_type=client_type,
         country=country,
+        date_from=date_from,
+        date_to=date_to,
         skip=skip,
         limit=limit,
     )

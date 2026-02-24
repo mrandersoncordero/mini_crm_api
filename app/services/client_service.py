@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_
 from sqlalchemy.orm import selectinload
@@ -7,7 +8,6 @@ from app.repositories.base_repository import BaseRepository
 from app.schemas.client import ClientCreate, ClientUpdate
 from app.utils.validators import validate_phone
 from app.core.email import email_service
-
 
 class ClientService:
     def __init__(self, db: AsyncSession, user_id: Optional[int] = None):
@@ -132,6 +132,8 @@ class ClientService:
         country: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
     ) -> list:
         """Advanced search for clients with multiple filters"""
         conditions = []
@@ -166,6 +168,12 @@ class ClientService:
 
         if country:
             conditions.append(Client.country.ilike(f"%{country}%"))
+
+        if date_from:
+            conditions.append(Client.created_at >= date_from)
+
+        if date_to:
+            conditions.append(Client.created_at <= date_to)
 
         if conditions:
             query = select(Client).where(and_(*conditions))
