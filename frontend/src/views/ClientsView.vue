@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { clientsApi } from '@/services/api'
-import type { Client, ClientCreate, ClientUpdate } from '@/types'
+import type { Client, ClientCreate } from '@/types'
 import { ClientType } from '@/types'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -10,6 +10,7 @@ import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Select from 'primevue/select'
+import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 
@@ -18,7 +19,22 @@ const confirm = useConfirm()
 
 const clients = ref<Client[]>([])
 const loading = ref(false)
-const searchQuery = ref('')
+const totalRecords = ref(0)
+const lazyParams = ref({ first: 0, rows: 10 })
+
+// Filters
+const filters = ref({
+  contact_name: '',
+  company_name: '',
+  phone: '',
+  email: '',
+  instagram: '',
+  client_type: null as ClientType | null,
+  country: '',
+  date_from: null as Date | null,
+  date_to: null as Date | null,
+})
+const showFilters = ref(false)
 
 // Dialog state
 const dialogVisible = ref(false)
@@ -44,15 +60,53 @@ const clientTypeOptions = [
 
 const submitted = ref(false)
 
+const hasActiveFilters = computed(() => {
+  return (
+    filters.value.contact_name ||
+    filters.value.company_name ||
+    filters.value.phone ||
+    filters.value.email ||
+    filters.value.instagram ||
+    filters.value.client_type ||
+    filters.value.country ||
+    filters.value.date_from ||
+    filters.value.date_to
+  )
+})
+
 // ── Data loading ──────────────────────────────────────
 async function loadClients() {
   loading.value = true
   try {
-    const response = searchQuery.value.trim()
-      ? await clientsApi.search(searchQuery.value.trim())
-      : await clientsApi.list()
-    clients.value = response.data
-  } catch (error) {
+    const params: Record<string, unknown> = {
+      skip: lazyParams.value.first,
+      limit: lazyParams.value.rows,
+    }
+
+    if (hasActiveFilters.value) {
+      if (filters.value.contact_name) params.contact_name = filters.value.contact_name
+      if (filters.value.company_name) params.company_name = filters.value.company_name
+      if (filters.value.phone) params.phone = filters.value.phone
+      if (filters.value.email) params.email = filters.value.email
+      if (filters.value.instagram) params.instagram = filters.value.instagram
+      if (filters.value.client_type) params.client_type = filters.value.client_type
+      if (filters.value.country) params.country = filters.value.country
+      if (filters.value.date_from) params.date_from = filters.value.date_from.toISOString()
+      if (filters.value.date_to) params.date_to = filters.value.date_to.toISOString()
+
+      const response = await clientsApi.advancedSearch(params)
+      clients.value = response.data
+      totalRecords.value = response.data.length < lazyParams.value.rows 
+        ? lazyParams.value.first + response.data.length 
+        : lazyParams.value.first + lazyParams.value.rows + 1
+    } else {
+      const response = await clientsApi.list(lazyParams.value.first, lazyParams.value.rows)
+      clients.value = response.data
+      totalRecords.value = response.data.length < lazyParams.value.rows
+        ? lazyParams.value.first + response.data.length
+        : lazyParams.value.first + lazyParams.value.rows + 1
+    }
+  } catch {
     toast.add({
       severity: 'error',
       summary: 'Error',
@@ -64,16 +118,33 @@ async function loadClients() {
   }
 }
 
-onMounted(loadClients)
+function onPage(event: { first: number; rows: number }) {
+  lazyParams.value.first = event.first
+  lazyParams.value.rows = event.rows
+  loadClients()
+}
 
-// Debounced search
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
-watch(searchQuery, () => {
-  if (searchTimeout) clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    loadClients()
-  }, 400)
-})
+function onSort() {
+  loadClients()
+}
+
+function clearFilters() {
+  filters.value = {
+    contact_name: '',
+    company_name: '',
+    phone: '',
+    email: '',
+    instagram: '',
+    client_type: null,
+    country: '',
+    date_from: null,
+    date_to: null,
+  }
+  lazyParams.value.first = 0
+  loadClients()
+}
+
+onMounted(loadClients)
 
 // ── Dialog helpers ────────────────────────────────────
 function resetForm() {
@@ -102,73 +173,44 @@ function openEdit(client: Client) {
     client_type: client.client_type,
     contact_name: client.contact_name,
     company_name: client.company_name ?? '',
-    phone: client.phone,
+    phone: client.phone || '',
     email: client.email ?? '',
     instagram: client.instagram ?? '',
-    address: client.address,
+    address: client.address || '',
     country: client.country ?? '',
   }
-  submitted.value = false
   dialogVisible.value = true
-}
-
-function isFormValid(): boolean {
-  if (!form.value.contact_name.trim()) return false
-  if (!form.value.phone.trim()) return false
-  if (!form.value.address.trim()) return false
-  if (form.value.client_type === ClientType.JURIDICAL && !form.value.company_name?.trim()) {
-    return false
-  }
-  return true
 }
 
 async function saveClient() {
   submitted.value = true
-  if (!isFormValid()) return
+
+  if (!form.value.contact_name || !form.value.phone || !form.value.address) {
+    return
+  }
+
+  if (form.value.client_type === ClientType.JURIDICAL && !form.value.company_name) {
+    return
+  }
 
   saving.value = true
   try {
-    // Build payload, omitting empty optional fields
-    const payload: ClientCreate = {
-      client_type: form.value.client_type,
-      contact_name: form.value.contact_name.trim(),
-      phone: form.value.phone.trim(),
-      address: form.value.address.trim(),
-    }
-    if (form.value.company_name?.trim()) payload.company_name = form.value.company_name.trim()
-    if (form.value.email?.trim()) payload.email = form.value.email.trim()
-    if (form.value.instagram?.trim()) payload.instagram = form.value.instagram.trim()
-    if (form.value.country?.trim()) payload.country = form.value.country.trim()
-
     if (editingClient.value) {
-      const updatePayload: ClientUpdate = { ...payload }
-      await clientsApi.update(editingClient.value.id, updatePayload)
-      toast.add({
-        severity: 'success',
-        summary: 'Actualizado',
-        detail: 'Cliente actualizado exitosamente',
-        life: 3000,
-      })
+      await clientsApi.update(editingClient.value.id, form.value)
+      toast.add({ severity: 'success', summary: 'Éxito', detail: 'Cliente actualizado', life: 3000 })
     } else {
-      await clientsApi.create(payload)
-      toast.add({
-        severity: 'success',
-        summary: 'Creado',
-        detail: 'Cliente creado exitosamente',
-        life: 3000,
-      })
+      await clientsApi.create(form.value)
+      toast.add({ severity: 'success', summary: 'Éxito', detail: 'Cliente creado', life: 3000 })
     }
-
     dialogVisible.value = false
-    await loadClients()
+    loadClients()
   } catch (error: unknown) {
-    const msg =
-      error instanceof Error ? error.message : 'Error al guardar el cliente'
+    const err = error as { response?: { data?: { detail?: string } } }
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: msg,
-      life: 4000,
+      detail: err.response?.data?.detail || 'Error al guardar cliente',
+      life: 3000,
     })
   } finally {
     saving.value = false
@@ -177,246 +219,287 @@ async function saveClient() {
 
 function confirmDelete(client: Client) {
   confirm.require({
-    message: `¿Está seguro de eliminar al cliente "${client.contact_name}"?`,
+    message: `¿Eliminar cliente "${client.contact_name}"?`,
     header: 'Confirmar eliminación',
     icon: 'pi pi-exclamation-triangle',
-    acceptLabel: 'Sí, eliminar',
-    rejectLabel: 'Cancelar',
     acceptClass: 'p-button-danger',
     accept: async () => {
       try {
         await clientsApi.delete(client.id)
-        toast.add({
-          severity: 'success',
-          summary: 'Eliminado',
-          detail: 'Cliente eliminado exitosamente',
-          life: 3000,
-        })
-        await loadClients()
+        toast.add({ severity: 'success', summary: 'Éxito', detail: 'Cliente eliminado', life: 3000 })
+        loadClients()
       } catch {
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'No se pudo eliminar el cliente',
-          life: 4000,
-        })
+        toast.add({ severity: 'error', summary: 'Error', detail: 'No se pudo eliminar', life: 3000 })
       }
     },
   })
 }
-
-function clientTypeLabel(type: ClientType): string {
-  return type === ClientType.NATURAL ? 'Natural' : 'Jurídico'
-}
 </script>
 
 <template>
-  <div>
+  <div class="card">
     <div class="page-header">
       <h1>Clientes</h1>
-      <Button label="Nuevo Cliente" icon="pi pi-plus" @click="openNew" />
+      <div class="header-actions">
+        <Button
+          :label="showFilters ? 'Ocultar filtros' : 'Mostrar filtros'"
+          :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
+          severity="secondary"
+          text
+          @click="showFilters = !showFilters"
+        />
+        <Button label="Nuevo Cliente" icon="pi pi-plus" @click="openNew" />
+      </div>
     </div>
 
-    <div class="card">
-      <div class="table-toolbar">
-        <div class="search-group">
-          <span class="p-input-icon-left search-icon">
-            <i class="pi pi-search" />
-            <InputText
-              v-model="searchQuery"
-              placeholder="Buscar clientes..."
-            />
-          </span>
+    <!-- Filters Panel -->
+    <div v-if="showFilters" class="filters-panel">
+      <div class="filters-grid">
+        <div class="filter-field">
+          <label>Nombre de contacto</label>
+          <InputText v-model="filters.contact_name" placeholder="Buscar..." @input="loadClients" />
+        </div>
+        <div class="filter-field">
+          <label>Empresa</label>
+          <InputText v-model="filters.company_name" placeholder="Buscar..." @input="loadClients" />
+        </div>
+        <div class="filter-field">
+          <label>Teléfono</label>
+          <InputText v-model="filters.phone" placeholder="Buscar..." @input="loadClients" />
+        </div>
+        <div class="filter-field">
+          <label>Email</label>
+          <InputText v-model="filters.email" placeholder="Buscar..." @input="loadClients" />
+        </div>
+        <div class="filter-field">
+          <label>Instagram</label>
+          <InputText v-model="filters.instagram" placeholder="Buscar..." @input="loadClients" />
+        </div>
+        <div class="filter-field">
+          <label>Tipo</label>
+          <Select
+            v-model="filters.client_type"
+            :options="clientTypeOptions"
+            placeholder="Todos"
+            @change="loadClients"
+          />
+        </div>
+        <div class="filter-field">
+          <label>País</label>
+          <InputText v-model="filters.country" placeholder="Buscar..." @input="loadClients" />
+        </div>
+        <div class="filter-field">
+          <label>Fecha desde</label>
+          <DatePicker v-model="filters.date_from" placeholder="Seleccionar" @date-select="loadClients" />
+        </div>
+        <div class="filter-field">
+          <label>Fecha hasta</label>
+          <DatePicker v-model="filters.date_to" placeholder="Seleccionar" @date-select="loadClients" />
         </div>
       </div>
-
-      <DataTable
-        :value="clients"
-        :loading="loading"
-        stripedRows
-        paginator
-        :rows="10"
-        :rowsPerPageOptions="[10, 25, 50]"
-        emptyMessage="No se encontraron clientes."
-      >
-        <Column field="id" header="ID" sortable style="width: 5rem" />
-        <Column field="client_type" header="Tipo" sortable style="width: 8rem">
-          <template #body="{ data }">
-            <span :class="['client-type-badge', data.client_type]">
-              {{ clientTypeLabel(data.client_type) }}
-            </span>
-          </template>
-        </Column>
-        <Column field="contact_name" header="Nombre Contacto" sortable>
-          <template #body="{ data }">
-            <router-link :to="`/clients/${data.id}`" class="client-link">
-              {{ data.contact_name }}
-            </router-link>
-          </template>
-        </Column>
-        <Column field="company_name" header="Empresa" sortable />
-        <Column field="phone" header="Teléfono" />
-        <Column field="email" header="Email" />
-        <Column field="instagram" header="Instagram" />
-        <Column field="country" header="País" sortable />
-        <Column header="Acciones" style="width: 10rem">
-          <template #body="{ data }">
-            <div class="action-buttons">
-              <Button
-                icon="pi pi-pencil"
-                severity="info"
-                text
-                rounded
-                @click="openEdit(data)"
-              />
-              <Button
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                rounded
-                @click="confirmDelete(data)"
-              />
-            </div>
-          </template>
-        </Column>
-      </DataTable>
+      <div class="filters-actions">
+        <Button label="Limpiar filtros" severity="secondary" text @click="clearFilters" />
+      </div>
     </div>
 
-    <!-- Create / Edit Dialog -->
+    <!-- Data Table -->
+    <DataTable
+      :value="clients"
+      :loading="loading"
+      :paginator="!hasActiveFilters"
+      :first="lazyParams.first"
+      :rows="lazyParams.rows"
+      :totalRecords="totalRecords"
+      :rowsPerPageOptions="[10, 25, 50]"
+      lazy
+      stripedRows
+      removableSort
+      @page="onPage"
+      @sort="onSort"
+    >
+      <Column field="id" header="ID" sortable style="width: 60px" />
+      <Column header="Tipo" style="width: 90px">
+        <template #body="{ data }">
+          <span :class="['type-badge', data.client_type]">
+            {{ data.client_type === 'natural' ? 'Natural' : 'Jurídico' }}
+          </span>
+        </template>
+      </Column>
+      <Column field="contact_name" header="Nombre" sortable>
+        <template #body="{ data }">
+          <router-link :to="`/clients/${data.id}`" class="client-link">
+            {{ data.contact_name }}
+          </router-link>
+        </template>
+      </Column>
+      <Column field="company_name" header="Empresa" />
+      <Column field="phone" header="Teléfono" />
+      <Column field="email" header="Email" />
+      <Column field="country" header="País" style="width: 100px" />
+      <Column header="Acciones" style="width: 120px">
+        <template #body="{ data }">
+          <div class="action-buttons">
+            <Button icon="pi pi-pencil" text rounded severity="info" @click="openEdit(data)" />
+            <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDelete(data)" />
+          </div>
+        </template>
+      </Column>
+      <template #empty>
+        <div class="empty-state">
+          <i class="pi pi-users" />
+          <p>No se encontraron clientes</p>
+        </div>
+      </template>
+    </DataTable>
+
+    <!-- Create/Edit Dialog -->
     <Dialog
       v-model:visible="dialogVisible"
       :header="editingClient ? 'Editar Cliente' : 'Nuevo Cliente'"
-      :modal="true"
-      :style="{ width: '600px' }"
-      :closable="!saving"
+      modal
+      style="width: 500px"
     >
-      <div class="dialog-form">
+      <form @submit.prevent="saveClient" class="form-grid">
         <div class="form-field">
-          <label for="client_type">Tipo de Cliente *</label>
+          <label>Tipo de cliente *</label>
           <Select
-            id="client_type"
             v-model="form.client_type"
             :options="clientTypeOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Seleccionar tipo"
-            class="w-full"
+            :invalid="submitted && !form.client_type"
           />
         </div>
 
         <div class="form-field">
-          <label for="contact_name">Nombre de Contacto *</label>
-          <InputText
-            id="contact_name"
-            v-model="form.contact_name"
-            :invalid="submitted && !form.contact_name.trim()"
-            class="w-full"
-          />
-          <small v-if="submitted && !form.contact_name.trim()" class="p-error">
-            El nombre de contacto es requerido.
-          </small>
+          <label>Nombre de contacto *</label>
+          <InputText v-model="form.contact_name" :invalid="submitted && !form.contact_name" />
+        </div>
+
+        <div class="form-field" v-if="form.client_type === 'juridical'">
+          <label>Nombre de empresa *</label>
+          <InputText v-model="form.company_name" :invalid="submitted && !form.company_name" />
+        </div>
+
+        <div class="form-field" v-else>
+          <label>Nombre de empresa</label>
+          <InputText v-model="form.company_name" />
         </div>
 
         <div class="form-field">
-          <label for="company_name">
-            Empresa{{ form.client_type === ClientType.JURIDICAL ? ' *' : '' }}
-          </label>
-          <InputText
-            id="company_name"
-            v-model="form.company_name"
-            :invalid="submitted && form.client_type === ClientType.JURIDICAL && !form.company_name?.trim()"
-            class="w-full"
-          />
-          <small
-            v-if="submitted && form.client_type === ClientType.JURIDICAL && !form.company_name?.trim()"
-            class="p-error"
-          >
-            La empresa es requerida para clientes jurídicos.
-          </small>
+          <label>Teléfono *</label>
+          <InputText v-model="form.phone" :invalid="submitted && !form.phone" placeholder="+58..." />
         </div>
 
         <div class="form-field">
-          <label for="phone">Teléfono *</label>
-          <InputText
-            id="phone"
-            v-model="form.phone"
-            :invalid="submitted && !form.phone.trim()"
-            class="w-full"
-          />
-          <small v-if="submitted && !form.phone.trim()" class="p-error">
-            El teléfono es requerido.
-          </small>
+          <label>Email</label>
+          <InputText v-model="form.email" type="email" />
         </div>
 
         <div class="form-field">
-          <label for="email">Email</label>
-          <InputText
-            id="email"
-            v-model="form.email"
-            class="w-full"
-          />
+          <label>Instagram</label>
+          <InputText v-model="form.instagram" placeholder="@usuario" />
+        </div>
+
+        <div class="form-field full-width">
+          <label>Dirección *</label>
+          <Textarea v-model="form.address" :invalid="submitted && !form.address" rows="2" />
         </div>
 
         <div class="form-field">
-          <label for="instagram">Instagram</label>
-          <InputText
-            id="instagram"
-            v-model="form.instagram"
-            class="w-full"
-          />
+          <label>País</label>
+          <InputText v-model="form.country" />
         </div>
-
-        <div class="form-field">
-          <label for="address">Dirección *</label>
-          <Textarea
-            id="address"
-            v-model="form.address"
-            :invalid="submitted && !form.address.trim()"
-            rows="3"
-            class="w-full"
-          />
-          <small v-if="submitted && !form.address.trim()" class="p-error">
-            La dirección es requerida.
-          </small>
-        </div>
-
-        <div class="form-field">
-          <label for="country">País</label>
-          <InputText
-            id="country"
-            v-model="form.country"
-            class="w-full"
-          />
-        </div>
-      </div>
+      </form>
 
       <template #footer>
-        <Button
-          label="Cancelar"
-          severity="secondary"
-          text
-          @click="dialogVisible = false"
-          :disabled="saving"
-        />
-        <Button
-          :label="editingClient ? 'Actualizar' : 'Crear'"
-          icon="pi pi-check"
-          @click="saveClient"
-          :loading="saving"
-        />
+        <Button label="Cancelar" text @click="dialogVisible = false" />
+        <Button :label="editingClient ? 'Actualizar' : 'Crear'" :loading="saving" @click="saveClient" />
       </template>
     </Dialog>
   </div>
 </template>
 
 <style scoped>
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filters-panel {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.filter-field label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.filters-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-field.full-width {
+  grid-column: 1 / -1;
+}
+
 .action-buttons {
   display: flex;
   gap: 0.25rem;
 }
 
 .client-link {
-  color: var(--p-primary-color);
+  color: #3b82f6;
   text-decoration: none;
   font-weight: 500;
 }
@@ -425,44 +508,51 @@ function clientTypeLabel(type: ClientType): string {
   text-decoration: underline;
 }
 
-.client-type-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.85rem;
+.type-badge {
+  display: inline-flex;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  text-transform: capitalize;
 }
 
-.client-type-badge.natural {
-  background-color: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+.type-badge.natural {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
-.client-type-badge.juridical {
-  background-color: rgba(139, 92, 246, 0.15);
-  color: #8b5cf6;
+.type-badge.juridical {
+  background: #f3e8ff;
+  color: #7c3aed;
 }
 
-.dialog-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 0.5rem 0;
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
 }
 
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+.empty-state i {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
 }
 
-.form-field label {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-.w-full {
-  width: 100%;
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-field.full-width {
+    grid-column: 1;
+  }
 }
 </style>
