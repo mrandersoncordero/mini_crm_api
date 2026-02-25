@@ -185,7 +185,7 @@ function openEdit(client: Client) {
 async function saveClient() {
   submitted.value = true
 
-  if (!form.value.contact_name || !form.value.phone || !form.value.address) {
+  if (!form.value.contact_name) {
     return
   }
 
@@ -195,11 +195,22 @@ async function saveClient() {
 
   saving.value = true
   try {
+    const payload = {
+      client_type: form.value.client_type,
+      contact_name: form.value.contact_name,
+      company_name: form.value.company_name || undefined,
+      phone: form.value.phone || undefined,
+      email: form.value.email || undefined,
+      instagram: form.value.instagram || undefined,
+      address: form.value.address || undefined,
+      country: form.value.country || undefined,
+    }
+
     if (editingClient.value) {
-      await clientsApi.update(editingClient.value.id, form.value)
+      await clientsApi.update(editingClient.value.id, payload)
       toast.add({ severity: 'success', summary: 'Éxito', detail: 'Cliente actualizado', life: 3000 })
     } else {
-      await clientsApi.create(form.value)
+      await clientsApi.create(payload)
       toast.add({ severity: 'success', summary: 'Éxito', detail: 'Cliente creado', life: 3000 })
     }
     dialogVisible.value = false
@@ -359,7 +370,6 @@ function confirmDelete(client: Client) {
       v-model:visible="dialogVisible"
       :header="editingClient ? 'Editar Cliente' : 'Nuevo Cliente'"
       modal
-      style="width: 500px"
     >
       <form @submit.prevent="saveClient" class="form-grid">
         <div class="form-field">
@@ -389,8 +399,8 @@ function confirmDelete(client: Client) {
         </div>
 
         <div class="form-field">
-          <label>Teléfono *</label>
-          <InputText v-model="form.phone" :invalid="submitted && !form.phone" placeholder="+58..." />
+          <label>Teléfono</label>
+          <InputText v-model="form.phone" placeholder="+58..." />
         </div>
 
         <div class="form-field">
@@ -404,8 +414,8 @@ function confirmDelete(client: Client) {
         </div>
 
         <div class="form-field full-width">
-          <label>Dirección *</label>
-          <Textarea v-model="form.address" :invalid="submitted && !form.address" rows="2" />
+          <label>Dirección</label>
+          <Textarea v-model="form.address" rows="2" />
         </div>
 
         <div class="form-field">

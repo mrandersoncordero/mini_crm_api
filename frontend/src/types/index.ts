@@ -81,10 +81,10 @@ export interface ClientCreate {
   client_type: ClientType
   contact_name: string
   company_name?: string
-  phone?: string
+  phone?: string | null
   email?: string
   instagram?: string
-  address?: string
+  address?: string | null
   country?: string
 }
 
