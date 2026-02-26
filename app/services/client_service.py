@@ -9,6 +9,7 @@ from app.schemas.client import ClientCreate, ClientUpdate
 from app.utils.validators import validate_phone
 from app.core.email import email_service
 
+
 class ClientService:
     def __init__(self, db: AsyncSession, user_id: Optional[int] = None):
         self.db = db
@@ -220,3 +221,24 @@ class ClientService:
     async def count(self) -> int:
         """Count all clients"""
         return await self.repo.count()
+
+    async def get_stats(self) -> dict:
+        """Get client counts grouped by type and total"""
+        from sqlalchemy import select, func
+
+        # Total count
+        total_query = select(func.count(Client.id))
+        total_result = await self.db.execute(total_query)
+        total = total_result.scalar() or 0
+
+        # Count by client type
+        type_query = select(Client.client_type, func.count(Client.id)).group_by(
+            Client.client_type
+        )
+        type_result = await self.db.execute(type_query)
+
+        by_type = {}
+        for row in type_result.all():
+            by_type[row[0].value] = row[1]
+
+        return {"total": total, "by_type": by_type}

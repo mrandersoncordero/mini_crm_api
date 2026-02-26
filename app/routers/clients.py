@@ -29,6 +29,17 @@ async def list_clients(
     return clients
 
 
+@router.get("/stats")
+async def get_client_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get client statistics by type"""
+    client_service = ClientService(db, current_user.id)
+    stats = await client_service.get_stats()
+    return stats
+
+
 @router.post("/", response_model=ClientResponse, status_code=status.HTTP_201_CREATED)
 async def create_client(
     client_data: ClientCreate,
