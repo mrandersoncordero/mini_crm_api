@@ -20,19 +20,19 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 
 const stats = ref<LeadStats | null>(null)
 const recentLeads = ref<Lead[]>([])
-const totalClients = ref(0)
+const clientStats = ref<{ total: number; by_type: Record<string, number> } | null>(null)
 const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const [statsRes, recentRes, clientsRes] = await Promise.all([
+    const [statsRes, recentRes, clientsStatsRes] = await Promise.all([
       leadsApi.stats(),
       leadsApi.recent(24, 5),
-      clientsApi.list(0, 1),
+      clientsApi.stats(),
     ])
     stats.value = statsRes.data
     recentLeads.value = recentRes.data
-    totalClients.value = clientsRes.data.length
+    clientStats.value = clientsStatsRes.data
   } catch (error) {
     console.error('Failed to load dashboard data:', error)
   } finally {
@@ -43,6 +43,10 @@ onMounted(async () => {
 const totalLeads = computed(() => {
   if (!stats.value) return 0
   return Object.values(stats.value.by_status).reduce((sum, count) => sum + count, 0)
+})
+
+const totalClients = computed(() => {
+  return clientStats.value?.total ?? 0
 })
 
 const statusCount = (status: string): number => {

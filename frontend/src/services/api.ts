@@ -83,6 +83,9 @@ export const clientsApi = {
   list(skip = 0, limit = 100) {
     return api.get<Client[]>('/clients/', { params: { skip, limit } })
   },
+  stats() {
+    return api.get<{ total: number; by_type: Record<string, number> }>('/clients/stats')
+  },
   get(id: number) {
     return api.get<ClientWithLeads>(`/clients/${id}`)
   },
