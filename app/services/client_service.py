@@ -18,13 +18,14 @@ class ClientService:
 
     async def create_client(self, client_data: ClientCreate) -> Client:
         """Create a new client and send notification"""
-        # Validate and format phone
-        phone = validate_phone(client_data.phone)
+        # Validate and format phone (returns None if empty)
+        phone = validate_phone(client_data.phone) if client_data.phone else None
 
-        # Check if phone already exists
-        existing = await self.repo.get_by_field("phone", phone)
-        if existing:
-            raise ValueError(f"Client with phone '{phone}' already exists")
+        # Check if phone already exists (only if phone is not None)
+        if phone:
+            existing = await self.repo.get_by_field("phone", phone)
+            if existing:
+                raise ValueError(f"Client with phone '{phone}' already exists")
 
         # Prepare data
         client_dict = client_data.model_dump()
@@ -66,15 +67,9 @@ class ClientService:
                 raise ValueError(f"Client with phone '{phone}' already exists")
 
             update_dict["phone"] = phone
-
-        # Validate business rules
-        if "client_type" in update_dict and "company_name" in update_dict:
-            if update_dict["client_type"] == "juridical" and not update_dict.get(
-                "company_name"
-            ):
-                raise ValueError("Company name is required for juridical clients")
-
-        return await self.repo.update(client, update_dict)
+        elif "phone" in update_dict and not update_dict["phone"]:
+            # Explicitly setting phone to empty/null
+            update_dict["phone"] = None
 
     async def get_by_id(self, client_id: int) -> Optional[Client]:
         """Get client by ID"""
