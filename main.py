@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.db.session import engine
 from app.utils.base_model import Base
-from app.routers import auth, users, clients, leads
+from app.routers import auth, users, clients, leads, audit_logs
 
 
 @asynccontextmanager
@@ -40,6 +40,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(clients.router)
 app.include_router(leads.router)
+app.include_router(audit_logs.router)
 
 
 @app.get("/")
