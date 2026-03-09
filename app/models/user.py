@@ -1,32 +1,31 @@
+from __future__ import annotations
+import uuid
+from typing import List, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, Enum as SQLEnum
-from app.utils.base_model import Base, TimestampMixin
-from app.utils.enums import UserRole
+from sqlalchemy import String, Uuid, ForeignKey
+from fastapi_users.db import SQLAlchemyBaseUserTableUUID
+from app.utils.base_model import Base
 
 
-class User(Base, TimestampMixin):
+class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[SQLEnum] = mapped_column(
-        SQLEnum(UserRole, values_callable=lambda x: [e.value for e in x]),
-        nullable=False,
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    organization_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("organizations.id"), nullable=True
     )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
-    created_leads: Mapped[list["Lead"]] = relationship(
-        "Lead", foreign_keys="Lead.created_by_id", back_populates="created_by"
+    organization: Mapped[Optional["Organization"]] = relationship(
+        "Organization", back_populates="users"
     )
-    assigned_leads: Mapped[list["Lead"]] = relationship(
-        "Lead", foreign_keys="Lead.assigned_to_id", back_populates="assigned_to"
+    organization_roles: Mapped[List["UserOrganizationRole"]] = relationship(
+        "UserOrganizationRole", back_populates="user"
     )
-    audit_logs: Mapped[list["AuditLog"]] = relationship(
-        "AuditLog", back_populates="user"
+    business_permissions: Mapped[List["UserBusinessPermission"]] = relationship(
+        "UserBusinessPermission", back_populates="user"
     )
-
-    def __repr__(self):
-        return f"<User(id={self.id}, username={self.username}, role={self.role})>"
+    created_leads: Mapped[List["Lead"]] = relationship(
+        "Lead", back_populates="created_by"
+    )
+    authored_notes: Mapped[List["Note"]] = relationship("Note", back_populates="author")
