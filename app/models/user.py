@@ -4,10 +4,10 @@ from typing import List, Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Uuid, ForeignKey
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
-from app.utils.base_model import Base
+from app.utils.base_model import Base, TimestampMixin
 
 
-class User(SQLAlchemyBaseUserTableUUID, Base):
+class User(SQLAlchemyBaseUserTableUUID, Base, TimestampMixin):
     __tablename__ = "users"
 
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
