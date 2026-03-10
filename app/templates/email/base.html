@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ subject }}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #f4f4f7;
+            color: #333333;
+        }
+        .email-wrapper {
+            width: 100%;
+            background-color: #f4f4f7;
+            padding: 30px 0;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .email-header {
+            background-color: #1a56db;
+            color: #ffffff;
+            padding: 24px 30px;
+            text-align: center;
+        }
+        .email-header h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+        }
+        .email-body {
+            padding: 30px;
+        }
+        .email-body h2 {
+            margin-top: 0;
+            color: #1a56db;
+            font-size: 20px;
+        }
+        .email-body p {
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .info-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+        .info-table td.label {
+            font-weight: 600;
+            color: #555555;
+            width: 40%;
+            background-color: #f9fafb;
+        }
+        .info-table td.value {
+            color: #111827;
+        }
+        .email-footer {
+            background-color: #f9fafb;
+            padding: 20px 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+        }
+        .email-footer p {
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="email-header">
+                <h1>Mini CRM</h1>
+            </div>
+            <div class="email-body">
+                {% block content %}{% endblock %}
+            </div>
+            <div class="email-footer">
+                <p>Este es un mensaje automatico del sistema Mini CRM.</p>
+                <p>Mini CRM &copy; {{ year }}</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
