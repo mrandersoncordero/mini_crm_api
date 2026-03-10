@@ -23,8 +23,7 @@ class Settings(BaseSettings):
         os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24)
     )  # 24 hours
 
-    # Email Configuration
-    MAIL_MAILER: str = os.environ.get("MAIL_MAILER", "smtp")
+    # Email Configuration (used by fastapi-mail)
     MAIL_HOST: str = os.environ.get("MAIL_HOST", "")
     MAIL_PORT: int = int(os.environ.get("MAIL_PORT", 587))
     MAIL_USERNAME: str = os.environ.get("MAIL_USERNAME", "")
