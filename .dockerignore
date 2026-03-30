@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Entornos
+.venv/
+
+.ruff_cache
+
+# Node (si hay frontend)
+node_modules/
+dist/
+build/
+
+# Docs
+docs/_build/
+*.md
+!README.md
+
+# Docker
+docker/
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
+
+# postgres_data/ --- IGNORE ---
+postgres_data/
+
+# No excluir - necesarios para el build
+!pyproject.toml
+!alembic.ini
+!app/
+!scripts/
