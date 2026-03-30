@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+
+{% block content %}
+<p>Hola, {{ user.full_name }}:</p>
+<p>Gracias por registrarte. Haz clic en el siguiente enlace para verificar tu cuenta:</p>
+<a href="{{ verify_url }}">aqui</a>
+{% endblock %}
