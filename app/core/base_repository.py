@@ -6,7 +6,7 @@ from datetime import datetime
 import uuid
 
 from app.core.exceptions import NotFoundException
-from app.modules.audit_log.model import AuditLog, AuditAction
+from app.core.enums import AuditAction
 
 ModelType = TypeVar("ModelType")
 
@@ -26,12 +26,14 @@ class BaseRepository(Generic[ModelType]):
         db: AsyncSession,
         tenant_id: Optional[uuid.UUID] = None,
         user_id: Optional[uuid.UUID] = None,
+        audit_location: str = "tenant",  # Donde se registra la auditoria en el schema public o tenant
     ):
         self.model = model
         self.db = db
         self.tenant_id = tenant_id
         self.user_id = user_id
         self.table_name = model.__tablename__
+        self.audit_location = audit_location
 
     # ------------------------------------------------------------------
     # Filtro de tenant (seguridad en profundidad)
@@ -78,15 +80,29 @@ class BaseRepository(Generic[ModelType]):
         if self.user_id is None:
             return
 
-        audit = AuditLog(
-            table_name=self.table_name,
-            record_id=record_id,
-            action=action,
-            old_values=old_values,
-            new_values=new_values,
-            changed_by_id=self.user_id,
-            tenant_id=self.tenant_id,   # ← tenant en lugar de organization
-        )
+        if self.audit_location == "public":
+            from app.modules.audit_log.model import AuditLog as PublicAuditLog
+
+            audit = PublicAuditLog(
+                table_name=self.table_name,
+                record_id=record_id,
+                action=action,
+                old_values=old_values,
+                new_values=new_values,
+                changed_by_id=self.user_id,
+                tenant_id=self.tenant_id,
+            )
+        else:
+            from app.modules.core_crm.system.models import AuditLog as TenantAuditLog
+
+            audit = TenantAuditLog(
+                table_name=self.table_name,
+                record_id=record_id,
+                action=action,
+                old_values=old_values,
+                new_values=new_values,
+                changed_by_id=self.user_id,
+            )
         self.db.add(audit)  # sin await — solo encola en la sesión
 
     # ------------------------------------------------------------------
@@ -138,7 +154,7 @@ class BaseRepository(Generic[ModelType]):
                     setattr(obj, "tenant_id", self.tenant_id)
 
             self.db.add(obj)
-            await self.db.flush()          # genera el ID sin commit aún
+            await self.db.flush()  # genera el ID sin commit aún
             await self.db.refresh(obj)
 
             self._stage_audit_log(
@@ -147,7 +163,7 @@ class BaseRepository(Generic[ModelType]):
                 new_values=self._model_to_dict(obj),
             )
 
-            await self.db.commit()         # un solo commit: objeto + audit
+            await self.db.commit()  # un solo commit: objeto + audit
             await self.db.refresh(obj)
             return obj
         except Exception:
@@ -159,7 +175,8 @@ class BaseRepository(Generic[ModelType]):
             old_values = self._model_to_dict(db_obj)
 
             changed = {
-                k: v for k, v in obj_in.items()
+                k: v
+                for k, v in obj_in.items()
                 if v is not None and getattr(db_obj, k, None) != v
             }
             if not changed:
