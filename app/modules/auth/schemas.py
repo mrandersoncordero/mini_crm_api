@@ -5,16 +5,15 @@ import uuid
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
-    full_name: Optional[str] = Field(default=None, max_length=150)
     profile: Optional["ProfileResponse"] = None
 
 
 class UserCreate(schemas.BaseUserCreate):
-    full_name: Optional[str] = Field(default=None, max_length=150)
+    pass
 
 
 class UserUpdate(schemas.BaseUserUpdate):
-    full_name: Optional[str] = Field(default=None, max_length=150)
+    pass
 
 
 class ProfileBase(BaseModel):

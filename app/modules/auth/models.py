@@ -7,15 +7,15 @@ from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Uuid, ForeignKey
 from app.core.base_model import TimestampMixin
-from app.core.database import Base
+from app.core.base_model import Base
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base, TimestampMixin):
     __tablename__ = "users"
 
     # Relationships
-    profile: Mapped["Profile"] = relationship(
-        "Profile", back_populates="user", uselist=False
+    profile: Mapped[Optional["Profile"]] = relationship(
+        "Profile", back_populates="user", uselist=False, lazy="joined"
     )
 
 

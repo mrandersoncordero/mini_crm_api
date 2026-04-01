@@ -1,0 +1,132 @@
+erDiagram
+  TENANT_MEMBER ||--o{ BUSINESS_MEMBERSHIP : participa
+  BUSINESS ||--o{ BUSINESS_MEMBERSHIP : tiene
+  ROLE ||--o{ BUSINESS_MEMBERSHIP : asigna
+
+  BUSINESS ||--o{ SALES_PIPELINE : tiene
+  SALES_PIPELINE ||--o{ PIPELINE_STAGE : define
+  PIPELINE_STAGE ||--o{ LEAD : clasifica
+
+  BUSINESS ||--o{ CONTACT : gestiona
+
+  CONTACT ||--o{ LEAD : "puede ser"
+  CONTACT ||--o{ CLIENT : "puede convertirse"
+
+  CONTACT ||--o{ NOTE : recibe
+  TENANT_MEMBER ||--o{ NOTE : escribe
+
+  TENANT_MEMBER ||--o{ LEAD : crea
+
+  LEAD_SOURCE ||--o{ LEAD : origen
+
+  TENANT_MEMBER ||--o{ AUDIT_LOG : genera
+
+  TENANT_MEMBER {
+    uuid id PK
+    uuid public_tenant_user_id FK "ref a public.tenant_user"
+    string role
+    bool is_active
+    datetime created_at
+  }
+  ROLE {
+    uuid id PK
+    string name UK
+    string description
+    json permissions "{`contacts`: [`read`,`write`], `leads`: [`read`]}"
+  }
+  BUSINESS {
+    uuid id PK
+    string name
+    string tax_id
+    bool is_active
+    datetime created_at
+    datetime updated_at
+  }
+  BUSINESS_MEMBERSHIP {
+    uuid id PK
+    uuid tenant_member_id FK
+    uuid business_id FK
+    uuid role_id FK
+    datetime created_at
+  }
+
+  %% 🔥 NUEVO
+  SALES_PIPELINE {
+    uuid id PK
+    uuid business_id FK
+    string name
+    bool is_active
+    datetime created_at
+  }
+
+  %% 🔥 NUEVO
+  PIPELINE_STAGE {
+    uuid id PK
+    uuid pipeline_id FK
+    string name
+    int order
+    bool is_active
+  }
+  CONTACT {
+    uuid id PK
+    uuid business_id FK
+    string first_name
+    string last_name
+    string email
+    string phone
+    string instagram
+    string facebook
+    datetime created_at
+    datetime updated_at
+  }
+  LEAD_SOURCE {
+    uuid id PK
+    string name UK
+    string channel
+    bool is_active
+  }
+  LEAD {
+    uuid id PK
+    uuid contact_id FK
+    uuid created_by_id FK
+    uuid lead_source_id FK
+    uuid stage_id FK
+
+    string status "open, won, lost"
+
+    numeric value
+    string currency
+
+    string requirements
+
+    datetime created_at
+    datetime updated_at
+  }
+  CLIENT {
+    uuid id PK
+    uuid contact_id FK
+    string client_type "natural, juridical"
+    string tax_id
+    string billing_address
+    datetime first_purchase_date
+    datetime created_at
+    datetime updated_at
+  }
+  NOTE {
+    uuid id PK
+    uuid contact_id FK
+    uuid author_id FK
+    text content
+    datetime created_at
+    datetime updated_at
+  }
+  AUDIT_LOG {
+    uuid id PK
+    string table_name
+    uuid record_id
+    string action
+    json old_values
+    json new_values
+    uuid changed_by_id FK
+    datetime created_at
+  }

@@ -12,7 +12,7 @@ done
 echo "Database is ready!"
 
 echo "Running database migrations..."
-alembic upgrade head
+python -m app.core.run_migrations
 
 echo "Starting application..."
 exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload
