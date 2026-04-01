@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Local imports
 from app.core.config import settings
-from app.core.dependencies import get_db
+from app.core.dependencies import get_public_db
 from app.modules.auth.models import User
 from app.core.email_service import email_service
 
@@ -72,7 +72,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
 
 async def get_user_db(
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_public_db),
 ) -> SQLAlchemyUserDatabase:
     yield SQLAlchemyUserDatabase(session, User)
 
@@ -83,7 +83,7 @@ async def get_user_manager(
     yield UserManager(user_db)
 
 
-bearer_transport = BearerTransport(tokenUrl="/auth/login")
+bearer_transport = BearerTransport(tokenUrl="/api/v1/auth/login")
 
 
 def get_jwt_strategy() -> CustomJWTStrategy:
