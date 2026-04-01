@@ -13,7 +13,7 @@ from sqlalchemy import (
 )
 from app.core.enums import TenantRole
 from app.core.base_model import TimestampMixin
-from app.core.database import Base
+from app.core.base_model import Base
 
 if TYPE_CHECKING:
     pass
